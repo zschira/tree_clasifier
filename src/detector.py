@@ -3,10 +3,9 @@ from model import LeafNet
 import pathlib
 import os
 import numpy as np
-import tensorflow as tf
 
 class Detector:
-    def __init__(self, base_direc):
+    def __init__(self, base_direc=None):
         self.base_direc = pathlib.Path(base_direc)
         self.preprocessor = Preprocessor(base_direc)
         self.leaf_net = LeafNet()
@@ -30,7 +29,7 @@ class Detector:
                 np.save(save_direc / "bounds" / "{}_{}".format(site, plot), y[:, :4])
                 np.save(save_direc / "labels" / "{}_{}".format(site, plot), y[:, 4].astype(int))
 
-    def fit_model(self, data_direc=None):
+    def fit_model(self, data_direc=None, weights_path=None):
         if data_direc == None:
             data_direc = self.data_direc
         else:
@@ -38,8 +37,15 @@ class Detector:
 
         data_loader = Loader(10, data_direc)
 
+        # Load weights if they exist
+        if weights_path != None:
+            weights_path = pathlib.Path(weights_path).absolute()
+            self.leaf_net.load_weights(weights_path)
+        else:
+            weights_path = data_direc
+
         self.leaf_net.compile()
-        self.leaf_net.fit(data_loader)
+        self.leaf_net.fit(data_loader, weights_path)
 
     def create_paths(self, save_direc):
         if not os.path.exists(save_direc):

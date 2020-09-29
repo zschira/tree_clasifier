@@ -1,16 +1,34 @@
 from data.data_formats import Image, PointCloud, Shapefile
 import numpy as np
-from tensorflow.keras.utils import Sequence
+from keras.utils import Sequence
 import pathlib
 import os
 import math
+from sklearn.decomposition import PCA
+import pickle
 
 class Preprocessor:
     def __init__(self, base_direc):
         self.base_direc = base_direc
         self.polys = {"MLBS": None, "OSBS": None}
+        self.pca_name = "pca.pickle"
+        self.pca = None
 
-    def load_plot(self, site, plot_id):
+    def fit_pca(self, num_dims=3):
+        full_hsi = np.zeros((78, 20, 20, 369))
+        for (i, site)  in enumerate(["MLBS", "OSBS"]):
+            for j in range(1, 40):
+                full_hsi[i*39 + j-1, :, :, :] = Image(self.base_direc, "HSI", site, j).as_normalized_array()
+
+        full_hsi = full_hsi.reshape((78 * 20 * 20, 369))
+        pca = PCA(n_components=3)
+        pca.fit(full_hsi)
+        print(pca.explained_variance_ratio_)
+        self.pca = pca
+        with open(self.pca_name, "wb") as f:
+            pickle.dump(pca, f)
+
+    def load_plot(self, site, plot_id, apply_pca=True):
         chm = Image(self.base_direc, "CHM", site, plot_id)
         rgb = Image(self.base_direc, "RGB", site, plot_id)
         hsi = Image(self.base_direc, "HSI", site, plot_id)
@@ -32,19 +50,35 @@ class Preprocessor:
             bounding_vec[i, 3] = (poly_bounds[3] - bounds.bottom) / 20
             bounding_vec[i, 4] = 1
 
-        return (chm.as_normalized_array(), rgb.as_normalized_array(), hsi.as_normalized_array(), las.to_voxels(bounds.left, bounds.top, 0.5), bounding_vec)
+        return (chm.as_normalized_array(), rgb.as_normalized_array(), self.apply_pca(hsi.as_normalized_array(), apply_pca), las.to_voxels(bounds.left, bounds.top, 0.5), bounding_vec)
+
+    def apply_pca(self, hsi, apply_pca):
+        if apply_pca == None:
+            return hsi
+
+        if self.pca == None:
+            with open(self.pca_name, "rb") as f:
+                self.pca = pickle.load(f)
+
+        hsi_transformed = self.pca.transform(hsi.reshape((20*20, 369)))
+        return hsi_transformed.reshape((20, 20, 3))
+
 
 class Loader(Sequence):
     def __init__(self, batch_size, data_dir):
         self.batch_size = batch_size
         self.data_dir = pathlib.Path(data_dir)
         self.fnames = np.array(os.listdir(self.data_dir / "chm"))
+        np.random.shuffle(self.fnames)
         self.chm = np.zeros((self.batch_size, 20, 20, 1))
         self.rgb = np.zeros((self.batch_size, 200, 200, 3))
-        self.hsi = np.zeros((self.batch_size, 20, 20, 369))
+        self.hsi = np.zeros((self.batch_size, 20, 20, 3))
         self.las = np.zeros((self.batch_size, 40, 40, 70, 1))
         self.bounds = np.zeros((self.batch_size, 30, 4))
         self.labels = np.zeros((self.batch_size, 30), dtype=int)
+
+    def on_epoch_end(self):
+        np.random.shuffle(self.fnames)
 
     def get_batch_fnames(self, index):
         start = (index * self.batch_size) % 78
