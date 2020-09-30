@@ -1,3 +1,4 @@
 {
-    "data_directory": "~/external_drive",
+"data_direc": "/run/media/zach/92db4ffe-e676-47af-ba29-4f19096504ca/data", 
+"processed_direc": "/run/media/zach/92db4ffe-e676-47af-ba29-4f19096504ca/data/processed"
 }

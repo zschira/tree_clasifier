@@ -1,4 +1,4 @@
-from data.data_formats import Image, PointCloud, Shapefile
+from src.data.data_formats import Image, PointCloud, Shapefile
 import numpy as np
 from keras.utils import Sequence
 import pathlib
@@ -8,17 +8,16 @@ from sklearn.decomposition import PCA
 import pickle
 
 class Preprocessor:
-    def __init__(self, base_direc):
-        self.base_direc = base_direc
+    def __init__(self):
         self.polys = {"MLBS": None, "OSBS": None}
         self.pca_name = "pca.pickle"
         self.pca = None
 
-    def fit_pca(self, num_dims=3):
+    def fit_pca(self, base_direc, num_dims=3):
         full_hsi = np.zeros((78, 20, 20, 369))
         for (i, site)  in enumerate(["MLBS", "OSBS"]):
             for j in range(1, 40):
-                full_hsi[i*39 + j-1, :, :, :] = Image(self.base_direc, "HSI", site, j).as_normalized_array()
+                full_hsi[i*39 + j-1, :, :, :] = Image(base_direc, "HSI", site, j).as_normalized_array()
 
         full_hsi = full_hsi.reshape((78 * 20 * 20, 369))
         pca = PCA(n_components=3)
@@ -28,14 +27,15 @@ class Preprocessor:
         with open(self.pca_name, "wb") as f:
             pickle.dump(pca, f)
 
-    def load_plot(self, site, plot_id, apply_pca=True):
-        chm = Image(self.base_direc, "CHM", site, plot_id)
-        rgb = Image(self.base_direc, "RGB", site, plot_id)
-        hsi = Image(self.base_direc, "HSI", site, plot_id)
-        las = PointCloud(self.base_direc, site, plot_id)
+    def load_plot(self, base_direc, site, plot_id, apply_pca=True):
+        self.base_direc = base_direc
+        chm = Image(base_direc, "CHM", site, plot_id)
+        rgb = Image(base_direc, "RGB", site, plot_id)
+        hsi = Image(base_direc, "HSI", site, plot_id)
+        las = PointCloud(base_direc, site, plot_id)
 
         if self.polys[site] == None:
-            self.polys[site] = Shapefile(self.base_direc, site)
+            self.polys[site] = Shapefile(base_direc, site)
 
         polys = self.polys[site]
         bounds = rgb.get_bounds()
@@ -53,10 +53,13 @@ class Preprocessor:
         return (chm.as_normalized_array(), rgb.as_normalized_array(), self.apply_pca(hsi.as_normalized_array(), apply_pca), las.to_voxels(bounds.left, bounds.top, 0.5), bounding_vec)
 
     def apply_pca(self, hsi, apply_pca):
-        if apply_pca == None:
+        if not apply_pca:
             return hsi
 
         if self.pca == None:
+            if not os.path.isfile(self.pca_name):
+                self.fit_pca(self.base_direc)
+
             with open(self.pca_name, "rb") as f:
                 self.pca = pickle.load(f)
 

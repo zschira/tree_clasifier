@@ -1,27 +1,28 @@
-from preprocessor import Preprocessor, Loader
+from src.preprocessor import Preprocessor, Loader
 from model import LeafNet
 import pathlib
 import os
 import numpy as np
 
 class Detector:
-    def __init__(self, base_direc=None):
-        self.base_direc = pathlib.Path(base_direc)
-        self.preprocessor = Preprocessor(base_direc)
+    def __init__(self):
+        self.data_direc = None
+        self.preprocessor = Preprocessor()
         self.leaf_net = LeafNet()
 
-    def preprocess(self, save_direc=None):
-        if save_direc == None:
-            save_direc = self.base_direc
+    def preprocess(self, base_direc, save_direc=None):
 
-        save_direc = pathlib.Path(save_direc) / "processed"
+        if save_direc == None:
+            save_direc = base_direc / "processed"
+
+        save_direc = pathlib.Path(save_direc).absolute()
         self.data_direc = save_direc
 
         self.create_paths(save_direc)
 
         for site in ["MLBS", "OSBS"]:
             for plot in range(1,40):
-                (chm, rgb, hsi, las, y) = self.preprocessor.load_plot(site, plot)
+                (chm, rgb, hsi, las, y) = self.preprocessor.load_plot(base_direc, site, plot)
                 np.save(save_direc / "chm" / "{}_{}".format(site, plot), chm)
                 np.save(save_direc / "rgb" / "{}_{}".format(site, plot), rgb)
                 np.save(save_direc / "hsi" / "{}_{}".format(site, plot), hsi)

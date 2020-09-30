@@ -1,7 +1,7 @@
 import rasterio
 import pathlib
-from data.utils import allowable_site, allowable_data_type
-from data.voxel import Voxel
+from src.data.utils import allowable_site, allowable_data_type
+from src.data.voxel import Voxel
 import geopandas as gpd
 from liblas import file as las_file
 import numpy as np
