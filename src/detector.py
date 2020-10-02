@@ -1,5 +1,5 @@
 from src.preprocessor import Preprocessor, Loader
-from model import LeafNet
+from src.model import LeafNet
 import pathlib
 import os
 import numpy as np
