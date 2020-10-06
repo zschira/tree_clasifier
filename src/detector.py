@@ -1,6 +1,7 @@
 from src.preprocessor import PcaHandler
 from src.data.data_formats import Image, PointCloud, Shapefile
 from src.data.data_sequence import Loader
+from src.utils import compute_iou
 from src.model import LeafNet
 import pathlib
 import os
@@ -22,7 +23,6 @@ class Detector:
         save_direc = pathlib.Path(save_direc).absolute()
         self.data_direc = save_direc
 
-        self.create_paths(save_direc)
 
         # Fit PCA
         self.pca.fit(base_direc)
@@ -36,6 +36,8 @@ class Detector:
                 polys[site] = Shapefile(base_direc, site)
         else:
             labels = False
+
+        self.create_paths(save_direc, labels)
 
         for fname in fnames:
             match = self.fname_parser.match(fname)
@@ -63,7 +65,7 @@ class Detector:
         else:
             data_direc = pathlib.Path(data_direc)
 
-        data_loader = Loader(10, data_direc, 78)
+        data_loader = Loader(10, data_direc)
 
         # Load weights if they exist
         if weights_path != None:
@@ -76,16 +78,57 @@ class Detector:
         self.leaf_net.fit(data_loader, weights_path)
 
     def predict(self, test_dir, weights_path):
-        data_loader = Loader(10, test_dir, 153)
-        self.leaf_net.load_weights(weights_path)
-        self.leaf_net.predict(data_loader)
+        test_dir = pathlib.Path(test_dir).absolute()
+        data_loader = Loader(1, test_dir, False)
+        self.leaf_net.load_weights(pathlib.Path(weights_path).absolute())
 
-    def create_paths(self, save_direc):
+        for i in range(len(data_loader)):
+            predictions = self.leaf_net.predict(data_loader.__getitem__(i))
+            self.score_predictions(predictions, test_dir, data_loader.fnames[i])
+
+    def score_predictions(self, predictions, test_dir, fname):
+        if not os.path.isfile(test_dir / "labels" / fname):
+            return
+
+        bounds_truth = np.load(test_dir / "bounds" / fname)
+        labels_truth = np.load(test_dir / "labels" / fname)
+
+        bounds_pred = predictions[0][0, :, :]
+        labels_pred = predictions[1][0, :]
+
+        labels_pred[labels_pred > 0.75] = 1
+        labels_pred[labels_pred < 0.75] = 0
+        labels_pred = labels_pred.astype(int)
+
+        iou_avg = 0
+        num_bb = 0
+
+        print(labels_pred)
+
+        for (b_t, l_t, b_p, l_p) in zip(bounds_truth, labels_truth, bounds_pred, labels_pred):
+            if l_t != l_p:
+                print("Mismatched label for file {}".format(fname))
+                continue
+
+            if l_p == 0:
+                continue
+
+            iou_avg += compute_iou(b_t, b_p)
+            num_bb += 1
+
+        print("Average iou for file, {}: {}".format(fname, iou_avg / num_bb))
+
+    def create_paths(self, save_direc, labels):
         if not os.path.exists(save_direc):
             os.mkdir(save_direc)
 
         # Create data paths
-        for feature in ["chm", "rgb", "hsi", "las", "bounds", "labels"]:
+        features = ["chm", "rgb", "hsi", "las"]
+        if labels:
+            features.append("bounds")
+            features.append("labels")
+
+        for feature in features:
             path = save_direc / feature
             if not os.path.exists(path):
                 os.mkdir(path)
