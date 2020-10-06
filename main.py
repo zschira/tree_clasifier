@@ -8,6 +8,7 @@ parser.add_argument('-t', '--train', default=False, nargs='?', const=True)
 parser.add_argument('-p', '--predict', default=False, nargs='?', const=True)
 parser.add_argument('-P', '--preprocess', default=False, nargs='?', const=True)
 parser.add_argument('-l', '--load_weights', default=False, nargs='?', const=True)
+parser.add_argument('-T', '--test_data', default=False)
 args = parser.parse_args()
 
 with open('config') as f:
@@ -22,7 +23,12 @@ if args.preprocess:
     else:
         base_direc = config.get('base_direc')
 
-    runner.preprocess(base_direc, config.get('save_direc'))
+    if args.test_data:
+        sites = ['MLBS', 'OSBS', 'TALL']
+    else:
+        sites = ['MLBS', 'OSBS']
+
+    runner.preprocess(base_direc, config.get('save_direc'), sites)
 
 if args.load_weights:
     if type(args.load_weights) is str:
@@ -44,4 +50,4 @@ if args.predict:
     else:
         test_direc = config.get('test_direc')
 
-    runner.create_paths(test_direc, weights_path)
+    runner.predict(test_direc, weights_path)

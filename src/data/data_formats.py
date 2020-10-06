@@ -1,20 +1,17 @@
 import rasterio
 import pathlib
-from src.data.utils import allowable_site, allowable_data_type
 from src.data.voxel import Voxel
 import geopandas as gpd
 from liblas import file as las_file
 import numpy as np
 
 class Data:
-    file_ext = ""
-
     def __init__(self, base_direc, data_type, site, plot_id, file_ext):
         self.base_direc = pathlib.Path(base_direc).absolute()
-        self.data_type = allowable_data_type(data_type)
-        self.site = allowable_site(site)
+        self.data_type = data_type
+        self.site = site
         self.plot_id = plot_id
-        self.full_path = self.base_direc / 'train/RemoteSensing/' / self.data_type / "{}_{}.{}".format(self.site, self.plot_id, file_ext)
+        self.full_path = self.base_direc / 'RemoteSensing/' / self.data_type / "{}_{}.{}".format(self.site, self.plot_id, file_ext)
         self.data = self.open_file()
 
     def open_file(self):
@@ -41,12 +38,26 @@ class Image(Data):
 class Shapefile():
     def __init__(self, base_direc, site):
         self.base_direc = pathlib.Path(base_direc).absolute()
-        self.site = allowable_site(site)
-        self.full_path = self.base_direc / 'train/ITC/' / "train_{}.shp".format(self.site)
+        self.site = site
+        self.full_path = self.base_direc / 'ITC/' / "train_{}.shp".format(self.site)
         self.shape = gpd.read_file(self.full_path)
 
     def filter(self, left, right, bottom, top):
         return self.shape.cx[left:right, bottom:top]
+
+    def get_train(self, bounds):
+        polys = self.filter(bounds.left, bounds.right, bounds.bottom, bounds.top)
+        bounding_vec = np.zeros((30, 5))
+
+        for (i, poly) in enumerate(polys.iterrows()):
+            poly_bounds = poly[1]["geometry"].bounds
+            bounding_vec[i, 0] = (poly_bounds[0] - bounds.left) / 20
+            bounding_vec[i, 1] = (poly_bounds[1] - bounds.bottom) / 20
+            bounding_vec[i, 2] = (poly_bounds[2] - bounds.left) / 20
+            bounding_vec[i, 3] = (poly_bounds[3] - bounds.bottom) / 20
+            bounding_vec[i, 4] = 1
+
+        return bounding_vec
 
 class PointCloud(Data):
     def __init__(self, base_direc, site, plot_id):

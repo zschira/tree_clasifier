@@ -101,3 +101,6 @@ class LeafNet():
         )
 
         self.model.save_weights(path / "model.h5")
+
+    def predict(self, data_sequence):
+        return self.model.predict_generator(data_sequence)
