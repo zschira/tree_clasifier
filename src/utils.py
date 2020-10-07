@@ -1,3 +1,5 @@
+from shapely.geometry import Polygon
+
 def compute_iou(boxA, boxB):
 	# determine the (x, y)-coordinates of the intersection rectangle
 	xA = max(boxA[0], boxB[0])
@@ -16,3 +18,19 @@ def compute_iou(boxA, boxB):
 	iou = interArea / float(boxAArea + boxBArea - interArea)
 	# return the intersection over union value
 	return iou
+
+def bb_2_polygons(left, bottom, boxes):
+    polys = []
+    
+    for box in boxes:
+        # Convert from ratio to meters
+        box *= 20
+
+        box[0] += left
+        box[1] += bottom
+        box[2] += left
+        box[3] += bottom
+
+        polys.append(Polygon([(box[0], box[3]), (box[0], box[1]), (box[2], box[1]), (box[2], box[3])]))
+
+    return polys

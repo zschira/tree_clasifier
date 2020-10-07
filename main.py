@@ -8,7 +8,7 @@ parser.add_argument('-t', '--train', default=False, nargs='?', const=True)
 parser.add_argument('-p', '--predict', default=False, nargs='?', const=True)
 parser.add_argument('-P', '--preprocess', default=False, nargs='?', const=True)
 parser.add_argument('-l', '--load_weights', default=False, nargs='?', const=True)
-parser.add_argument('-T', '--test_data', default=False)
+parser.add_argument('-T', '--test_data', default=False, nargs='?', const=True)
 args = parser.parse_args()
 
 with open('config') as f:

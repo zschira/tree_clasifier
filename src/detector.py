@@ -1,12 +1,15 @@
 from src.preprocessor import PcaHandler
 from src.data.data_formats import Image, PointCloud, Shapefile
 from src.data.data_sequence import Loader
-from src.utils import compute_iou
+from src.utils import compute_iou, bb_2_polygons
 from src.model import LeafNet
+import pandas as pd
+import geopandas as gpd
 import pathlib
 import os
 import numpy as np
 import re
+import matplotlib.pyplot as plt
 
 class Detector:
     def __init__(self):
@@ -23,7 +26,6 @@ class Detector:
         save_direc = pathlib.Path(save_direc).absolute()
         self.data_direc = save_direc
 
-
         # Fit PCA
         self.pca.fit(base_direc)
 
@@ -39,6 +41,7 @@ class Detector:
 
         self.create_paths(save_direc, labels)
 
+        df = pd.DataFrame(columns=['site', 'left', 'bottom'])
         for fname in fnames:
             match = self.fname_parser.match(fname)
             site = match.group(1)
@@ -48,6 +51,7 @@ class Detector:
             hsi = Image(base_direc, "HSI", site, plot)
             las = PointCloud(base_direc, site, plot)
             bounds = chm.get_bounds()
+            df = df.append({'site': '{}_{}'.format(site, plot), 'left': bounds.left, 'bottom': bounds.bottom}, ignore_index=True)
 
             np.save(save_direc / "chm" / "{}_{}".format(site, plot), chm.as_normalized_array())
             np.save(save_direc / "rgb" / "{}_{}".format(site, plot), rgb.as_normalized_array())
@@ -58,6 +62,8 @@ class Detector:
                 y = polys[site].get_train(bounds)
                 np.save(save_direc / "bounds" / "{}_{}".format(site, plot), y[:, :4])
                 np.save(save_direc / "labels" / "{}_{}".format(site, plot), y[:, 4].astype(int))
+
+        df.to_csv(save_direc / 'bounds.csv')
 
     def fit_model(self, data_direc=None, weights_path=None):
         if data_direc == None:
@@ -82,23 +88,39 @@ class Detector:
         data_loader = Loader(1, test_dir, False)
         self.leaf_net.load_weights(pathlib.Path(weights_path).absolute())
 
+        polygons = []
+        df = pd.read_csv(test_dir / 'bounds.csv').set_index('site', drop=True)
+
         for i in range(len(data_loader)):
+            fname = data_loader.fnames[i].split('.')[0]
             predictions = self.leaf_net.predict(data_loader.__getitem__(i))
-            self.score_predictions(predictions, test_dir, data_loader.fnames[i])
+            (bounds, labels) = self.convert_predictions(predictions)
+            self.score_predictions(bounds, labels, test_dir, fname)
+            left = df.loc[fname, 'left']
+            bottom = df.loc[fname, 'bottom']
+            polygons += bb_2_polygons(left, bottom, bounds[labels == 1, :])
 
-    def score_predictions(self, predictions, test_dir, fname):
-        if not os.path.isfile(test_dir / "labels" / fname):
-            return
+        polys = gpd.GeoDataFrame({'geometry': polygons}, crs='EPSG:32617')
+        polys.plot()
+        plt.show()
+        polys.to_file('delin_subm.shp')
 
-        bounds_truth = np.load(test_dir / "bounds" / fname)
-        labels_truth = np.load(test_dir / "labels" / fname)
-
+    def convert_predictions(self, predictions):
         bounds_pred = predictions[0][0, :, :]
         labels_pred = predictions[1][0, :]
 
         labels_pred[labels_pred > 0.75] = 1
         labels_pred[labels_pred < 0.75] = 0
         labels_pred = labels_pred.astype(int)
+
+        return (bounds_pred, labels_pred)
+
+    def score_predictions(self, bounds_pred, labels_pred, test_dir, fname):
+        if not os.path.isfile(test_dir / "labels" / fname):
+            return
+
+        bounds_truth = np.load(test_dir / "bounds" / fname)
+        labels_truth = np.load(test_dir / "labels" / fname)
 
         iou_avg = 0
         num_bb = 0

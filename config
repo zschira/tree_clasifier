@@ -1,5 +1,5 @@
 {
-"train_direc": "/run/media/zach/92db4ffe-e676-47af-ba29-4f19096504ca/data/train", 
+"train_direc": "/run/media/zach/92db4ffe-e676-47af-ba29-4f19096504ca/data/processed_train", 
 "base_direc": "/run/media/zach/92db4ffe-e676-47af-ba29-4f19096504ca/data/task1", 
 "save_direc": "/run/media/zach/92db4ffe-e676-47af-ba29-4f19096504ca/data/processed_test",
 "load_weights": "/run/media/zach/92db4ffe-e676-47af-ba29-4f19096504ca/",

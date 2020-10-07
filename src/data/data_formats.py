@@ -108,4 +108,7 @@ class PointCloud(Data):
         return (z_min, points)
 
     def normalize_intensity(self, intensity):
-        return (intensity - np.mean(intensity)) / np.std(intensity)
+        std = np.std(intensity)
+        if std == 0.0:
+            std = 1
+        return (intensity - np.mean(intensity)) / std

@@ -22,31 +22,40 @@ class LeafNet():
         rgb_down = layers.Conv2D(32, 5, activation="relu")(rgb_input)
         rgb_down = layers.Conv2D(32, 5, activation="relu")(rgb_down)
         rgb_down = layers.MaxPool2D(2)(rgb_down)
+        rgb_down = layers.Dropout(0.4)(rgb_down)
         rgb_down = layers.Conv2D(32, 5, activation="relu")(rgb_down)
         rgb_down = layers.Conv2D(32, 5, activation="relu")(rgb_down)
         rgb_down = layers.MaxPool2D(2)(rgb_down)
+        rgb_down = layers.Dropout(0.4)(rgb_down)
         rgb_down = layers.Conv2D(32, 5, activation="relu")(rgb_down)
         rgb_down = layers.MaxPool2D(2)(rgb_down)
+        rgb_down = layers.Dropout(0.4)(rgb_down)
 
         # HSI upsample network
         hsi_up = layers.Conv2D(3, 2, activation="relu", padding="same")(hsi_input)
         hsi_up = layers.UpSampling2D(3)(hsi_up)
+        hsi_up = layers.Dropout(0.4)(hsi_up)
         hsi_up = layers.Conv2D(3, 4, activation="relu")(hsi_up)
         hsi_up = layers.Conv2D(3, 4, activation="relu")(hsi_up)
         hsi_up = layers.UpSampling2D(2)(hsi_up)
+        hsi_up = layers.Dropout(0.4)(hsi_up)
         hsi_up = layers.Conv2D(3, 5, activation="relu")(hsi_up)
         hsi_up = layers.Conv2D(3, 5, activation="relu")(hsi_up)
         hsi_up = layers.UpSampling2D(2)(hsi_up)
+        hsi_up = layers.Dropout(0.4)(hsi_up)
 
         # CHM upsample network
         chm_up = layers.Conv2D(1, 2, activation="relu", padding="same")(chm_input)
         chm_up = layers.UpSampling2D(3)(chm_up)
+        chm_up = layers.Dropout(0.4)(chm_up)
         chm_up = layers.Conv2D(1, 4, activation="relu")(chm_up)
         chm_up = layers.Conv2D(1, 4, activation="relu")(chm_up)
         chm_up = layers.UpSampling2D(2)(chm_up)
+        chm_up = layers.Dropout(0.4)(chm_up)
         chm_up = layers.Conv2D(1, 5, activation="relu")(chm_up)
         chm_up = layers.Conv2D(1, 5, activation="relu")(chm_up)
         chm_up = layers.UpSampling2D(2)(chm_up)
+        chm_up = layers.Dropout(0.4)(chm_up)
 
         # High-res network
         high_res = layers.Concatenate(axis=3)([rgb_input, hsi_up, chm_up])
@@ -72,6 +81,7 @@ class LeafNet():
         # Combine networks with fully connected layers
         fully_con = layers.concatenate([high_res, low_res, las_net])
         fully_con = layers.Dense(256)(fully_con)
+        fully_con = layers.Dropout(0.4)(fully_con)
         output_bounding = layers.Dense(120)(fully_con)
         output_bounding = layers.Reshape((30, 4), name="bounds")(output_bounding)
         output_class = layers.Dense(30, activation="sigmoid", name="labels")(fully_con)
