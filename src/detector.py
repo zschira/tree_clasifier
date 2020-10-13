@@ -71,7 +71,7 @@ class Detector:
         else:
             data_direc = pathlib.Path(data_direc)
 
-        data_loader = Loader(10, data_direc)
+        data_loader = Loader(17, data_direc)
 
         # Load weights if they exist
         if weights_path != None:
@@ -116,11 +116,11 @@ class Detector:
         return (bounds_pred, labels_pred)
 
     def score_predictions(self, bounds_pred, labels_pred, test_dir, fname):
-        if not os.path.isfile(test_dir / "labels" / fname):
+        if not os.path.isfile(test_dir / "labels" / (fname + ".npy")):
             return
 
-        bounds_truth = np.load(test_dir / "bounds" / fname)
-        labels_truth = np.load(test_dir / "labels" / fname)
+        bounds_truth = np.load(test_dir / "bounds" / (fname + ".npy"))
+        labels_truth = np.load(test_dir / "labels" / (fname + ".npy"))
 
         iou_avg = 0
         num_bb = 0

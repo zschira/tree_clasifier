@@ -25,7 +25,7 @@ class Loader(Sequence):
 
     def get_batch_fnames(self, index):
         start = (index * self.batch_size) % self.num_files
-        indices = np.array(range(start, start + 10))
+        indices = np.array(range(start, start + self.batch_size))
         indices[indices >= self.num_files] = indices[indices >= self.num_files] - self.num_files
         return self.fnames[indices]
 
@@ -40,10 +40,11 @@ class Loader(Sequence):
             self.hsi[i, :, :, :] = np.load(self.data_dir / "hsi" / batch_files[i])
             self.las[i, :, :, :, 0] = np.load(self.data_dir / "las" / batch_files[i])
 
-        if self.train:
-            self.bounds[i, :, :] = np.load(self.data_dir / "bounds" / batch_files[i])
-            self.labels[i, :] = np.load(self.data_dir / "labels" / batch_files[i])
+            if self.train:
+                self.bounds[i, :, :] = np.load(self.data_dir / "bounds" / batch_files[i])
+                self.labels[i, :] = np.load(self.data_dir / "labels" / batch_files[i])
 
+        if self.train:
             return ([self.rgb, self.chm, self.hsi, self.las], [self.bounds, self.labels])
         else:
             return [self.rgb, self.chm, self.hsi, self.las]

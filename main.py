@@ -35,6 +35,8 @@ if args.load_weights:
         weights_path = args.load_weights
     else:
         weights_path = config['load_weights']
+else:
+    weights_path = None
 
 if args.train:
     if type(args.train) is str:
