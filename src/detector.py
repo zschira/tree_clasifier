@@ -27,7 +27,7 @@ class Detector:
         self.data_direc = save_direc
 
         # Fit PCA
-        self.pca.fit(base_direc)
+        self.pca.fit(".")
 
         fnames = os.listdir(base_direc / "RemoteSensing/CHM")
 

@@ -3,6 +3,7 @@ from sklearn.decomposition import PCA
 import pickle
 from src.data.data_formats import Image
 import os
+import numpy as np
 
 class PcaHandler:
     def __init__(self, name="pca.pickle"):
@@ -18,7 +19,7 @@ class PcaHandler:
         full_hsi = np.zeros((78, 20, 20, 369))
         for (i, site)  in enumerate(["MLBS", "OSBS"]):
             for j in range(1, 40):
-                full_hsi[i*39 + j-1, :, :, :] = Image(base_direc, "HSI", site, j).as_normalized_array()
+                full_hsi[i*39 + j-1, :, :, :] = Image(base_direc, "HSI", site, j)
 
         full_hsi = full_hsi.reshape((78 * 20 * 20, 369))
         self.pca.fit(full_hsi)
@@ -36,4 +37,5 @@ class PcaHandler:
                 self.pca = pickle.load(f)
 
         hsi_transformed = self.pca.transform(hsi.reshape((20*20, 369)))
-        return hsi_transformed.reshape((20, 20, 3))
+        hsi_normalized = (hsi_transformed - np.mean(hsi_transformed)) / np.std(hsi_transformed)
+        return hsi_normalized.reshape((20, 20, 3))
