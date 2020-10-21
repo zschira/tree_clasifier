@@ -162,15 +162,14 @@ class LeafNet():
         self.model.compile(
             loss={"bounds": "mse", "labels": "binary_crossentropy"},
             optimizer=keras.optimizers.RMSprop(),
-            metrics=["mse", "binary_accuracy"],
+            metrics={"bounds": "mse", "labels": "binary_accuracy"},
         )
 
     def fit(self, data_sequence, path):
         self.model.fit_generator(
             data_sequence,
-            epochs=100,
+            epochs=500,
         )
-        self.model.evaluate(data_sequence)
 
         self.model.save_weights(path / "model.h5")
 

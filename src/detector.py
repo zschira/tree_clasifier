@@ -27,7 +27,7 @@ class Detector:
         self.data_direc = save_direc
 
         # Fit PCA
-        self.pca.fit(".")
+        self.pca.fit(base_direc)
 
         fnames = os.listdir(base_direc / "RemoteSensing/CHM")
 
@@ -55,7 +55,7 @@ class Detector:
 
             np.save(save_direc / "chm" / "{}_{}".format(site, plot), chm.as_normalized_array())
             np.save(save_direc / "rgb" / "{}_{}".format(site, plot), rgb.as_normalized_array())
-            np.save(save_direc / "hsi" / "{}_{}".format(site, plot), self.pca.apply_pca(hsi.as_normalized_array()))
+            np.save(save_direc / "hsi" / "{}_{}".format(site, plot), self.pca.apply_pca(hsi.as_array()))
             np.save(save_direc / "las" / "{}_{}".format(site, plot), las.to_voxels(bounds.left, bounds.top, 0.5))
 
             if labels:
@@ -93,6 +93,7 @@ class Detector:
 
         for i in range(len(data_loader)):
             fname = data_loader.fnames[i].split('.')[0]
+            print(fname)
             predictions = self.leaf_net.predict(data_loader.__getitem__(i))
             (bounds, labels) = self.convert_predictions(predictions)
             self.score_predictions(bounds, labels, test_dir, fname)
@@ -101,8 +102,6 @@ class Detector:
             polygons += bb_2_polygons(left, bottom, bounds[labels == 1, :])
 
         polys = gpd.GeoDataFrame({'geometry': polygons}, crs='EPSG:32617')
-        polys.plot()
-        plt.show()
         polys.to_file('delin_subm.shp')
 
     def convert_predictions(self, predictions):

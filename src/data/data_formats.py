@@ -25,12 +25,15 @@ class Image(Data):
         return rasterio.open(self.full_path)
 
     def as_array(self):
-        return self.data.read()
+        return np.moveaxis(self.data.read(), 0, -1)
 
     def as_normalized_array(self):
         array = self.as_array()
-        normalized = (array - np.mean(array)) / np.std(array)
-        return np.moveaxis(normalized, 0, -1)
+        normalized = np.zeros(array.shape)
+        for i in range(normalized.shape[-1]):
+            normalized[:, :, i] = (array[:, :, i] - np.mean(array[:, :, i])) / np.std(array[:, :, i])
+
+        return normalized
 
     def get_bounds(self):
         return self.data.bounds

@@ -31,6 +31,8 @@ def bb_2_polygons(left, bottom, boxes):
         box[2] += left
         box[3] += bottom
 
+        print(box)
+
         polys.append(Polygon([(box[0], box[3]), (box[0], box[1]), (box[2], box[1]), (box[2], box[3])]))
 
     return polys

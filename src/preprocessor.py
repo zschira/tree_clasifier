@@ -19,7 +19,7 @@ class PcaHandler:
         full_hsi = np.zeros((78, 20, 20, 369))
         for (i, site)  in enumerate(["MLBS", "OSBS"]):
             for j in range(1, 40):
-                full_hsi[i*39 + j-1, :, :, :] = Image(base_direc, "HSI", site, j)
+                full_hsi[i*39 + j-1, :, :, :] = Image(base_direc, "HSI", site, j).as_array()
 
         full_hsi = full_hsi.reshape((78 * 20 * 20, 369))
         self.pca.fit(full_hsi)
