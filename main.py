@@ -1,3 +1,6 @@
+import plaidml.keras
+plaidml.keras.install_backend()
+
 import json
 import argparse
 from src.detector import Detector
