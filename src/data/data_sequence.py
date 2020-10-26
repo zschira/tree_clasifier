@@ -6,32 +6,26 @@ import pathlib
 import random
 
 class Loader(Sequence):
-    def __init__(self, batch_size, data_dir, train=True):
+    def __init__(self, batch_size=25, data_dir, train=True):
         self.batch_size = batch_size
         self.data_dir = pathlib.Path(data_dir)
         self.fnames = np.array(os.listdir(self.data_dir / "chm"))
         self.num_files = len(self.fnames)
-        self.chm = np.zeros((self.batch_size, 20, 20, 1))
-        self.rgb = np.zeros((self.batch_size, 200, 200, 3))
-        self.hsi = np.zeros((self.batch_size, 20, 20, 3))
-        self.las = np.zeros((self.batch_size, 40, 40, 70, 1))
+        self.chm = np.zeros((self.batch_size, 40, 40, 1))
+        self.rgb = np.zeros((self.batch_size, 40, 40, 3))
+        self.hsi = np.zeros((self.batch_size, 40, 40, 3))
+        self.las = np.zeros((self.batch_size, 8, 8, 70, 1))
         self.train = train
         if train:
-            self.bounds = np.zeros((self.batch_size, 30, 4))
-            self.labels = np.zeros((self.batch_size, 30), dtype=int)
+            self.bounds = np.zeros((self.batch_size, 9, 4))
+            self.labels = np.zeros((self.batch_size, 9), dtype=int)
 
     def on_epoch_end(self):
         if self.train:
             np.random.shuffle(self.fnames)
 
-    def get_batch_fnames(self, index):
-        start = (index * self.batch_size) % self.num_files
-        indices = np.array(range(start, start + self.batch_size))
-        indices[indices >= self.num_files] = indices[indices >= self.num_files] - self.num_files
-        return self.fnames[indices]
-
     def __len__(self):
-        return math.ceil(self.num_files / self.batch_size)
+        return self.num_files
     
     def __getitem__(self, index):
         batch_files = self.get_batch_fnames(index)
