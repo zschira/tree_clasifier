@@ -6,8 +6,9 @@ import pathlib
 import random
 
 class Loader(Sequence):
-    def __init__(self, batch_size=25, data_dir, train=True):
-        self.batch_size = batch_size
+    def __init__(self, data_dir, las_strides=1, train=True):
+        self.strides = las_strides * 5
+        self.batch_size = (200 / self.strides) ** 2
         self.data_dir = pathlib.Path(data_dir)
         self.fnames = np.array(os.listdir(self.data_dir / "chm"))
         self.num_files = len(self.fnames)
@@ -28,18 +29,56 @@ class Loader(Sequence):
         return self.num_files
     
     def __getitem__(self, index):
-        batch_files = self.get_batch_fnames(index)
-        for i in range(self.batch_size):
-            self.chm[i, :, :, :] = np.load(self.data_dir / "chm" / batch_files[i])
-            self.rgb[i, :, :, :] = np.load(self.data_dir / "rgb" / batch_files[i])
-            self.hsi[i, :, :, :] = np.load(self.data_dir / "hsi" / batch_files[i])
-            self.las[i, :, :, :, 0] = np.load(self.data_dir / "las" / batch_files[i])
-            self.las[i, :, :, :4, 0] = 0
+        chm = np.load(self.data_dir / "chm" / self.fnames[index])
+        rgb = np.load(self.data_dir / "rgb" / self.fnames[index])
+        hsi = np.load(self.data_dir / "hsi" / self.fnames[index])
+        las = np.load(self.data_dir / "las" / self.fnames[index])
 
-            if self.train:
-                self.bounds[i, :, :] = np.load(self.data_dir / "bounds" / batch_files[i])
-                self.labels[i, :] = np.load(self.data_dir / "labels" / batch_files[i])
-                self.rotate_arrays(i)
+        if self.train:
+            bounds = np.load(self.data_dir / "bounds" / batch_files[i])
+            labels = np.load(self.data_dir / "labels" / batch_files[i])
+            self.bounds[:, :, :] = 0
+            self.labels[:, :] = 0
+        else:
+            bounds = []
+            labels = []
+
+        img_x = 0
+        img_y = 0
+        las_x = 0
+        las_y = 0
+        for i in range(40):
+            for j in range(40):
+                min_batch_ind = i*40 + j
+
+                window_top = 1 - (img_y / 200)
+                window_left = img_x / 200
+                window_right = window_left + 0.2
+                window_bot = window_top - 0.2
+
+                self.chm[min_batch_ind, :, :, :] = chm[img_y:img_y+40, img_x:img_x+40, :]
+                self.rgb[min_batch_ind, :, :, :] = rgb[img_y:img_y+40, img_x:img_x+40, :]
+                self.hsi[min_batch_ind, :, :, :] = hsi[img_y:img_y+40, img_x:img_x+40, :]
+                self.las[min_batch_ind, :, :, :, :] = las[las_y:las_y+8, las_x:las_x+8, :, :]
+                img_x += 5
+                las_x += 1
+
+                ind = 0
+                for (bound, label) in zip(bounds, labels):
+                    if not label:
+                        continue
+
+                    centroid = [(bound[0]+bound[2])/2, (bound[1]+bound[3])/2]
+                    if (centroid[0] > window_left) and (centroid[0] < window_right) and (centroid[1] > window_bot) and (centroid[1] < window_top):
+                        self.labels[min_batch_ind, ind] = 1
+                        self.bounds[min_batch_ind, ind, 0] = bound[0] - centroid[0]
+                        self.bounds[min_batch_ind, ind, 1] = bound[1] - centroid[1]
+                        self.bounds[min_batch_ind, ind, 2] = bound[2] - centroid[0]
+                        self.bounds[min_batch_ind, ind, 3] = bound[3] - centroid[1]
+                        ind += 1
+
+            img_y += 5
+            las_y += 1
 
         if self.train:
             return ([self.rgb, self.chm, self.hsi, self.las], [self.bounds, self.labels])
