@@ -95,8 +95,8 @@ class Detector:
             fname = data_loader.fnames[i].split('.')[0]
             print(fname)
             predictions = self.leaf_net.predict(data_loader.__getitem__(i))
-            (bounds, labels) = self.convert_predictions(predictions)
-            self.score_predictions(bounds, labels, test_dir, fname)
+            (bounds, labels) = convert_predictions(predictions)
+            #score_predictions(bounds, labels, test_dir, fname)
             left = df.loc[fname, 'left']
             bottom = df.loc[fname, 'bottom']
             polygons += bb_2_polygons(left, bottom, bounds[labels == 1, :])

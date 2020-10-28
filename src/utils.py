@@ -1,4 +1,6 @@
 from shapely.geometry import Polygon
+import numpy as np
+import os
 
 def compute_iou(boxA, boxB):
 	# determine the (x, y)-coordinates of the intersection rectangle
@@ -40,7 +42,7 @@ def convert_predictions(predictions):
     labels_pred = predictions[1].flatten()
 
     for (i, bounds) in enumerate(bounds_pred):
-        row, col = divmod(i)
+        row, col = divmod(i, 33)
         window_left = (col * 5) / 200
         window_top = 1 - ((row * 5) / 200)
         window_centroid = [window_left + 0.1, window_top - 0.1]
@@ -51,12 +53,13 @@ def convert_predictions(predictions):
 
     bounds_pred = np.reshape(bounds_pred, (bounds_pred.shape[0] * 9, 4))
 
-    sort_inds = np.argsort(labels_pred)
+    sort_inds = np.argsort(labels_pred)[::-1]
     labels_pred = labels_pred[sort_inds]
     bounds_pred = bounds_pred[sort_inds, :]
+    print(np.sum(labels_pred > 0.9))
 
-    labels_pred[labels_pred > 0.75] = 1
-    labels_pred[labels_pred < 0.75] = 0
+    labels_pred[labels_pred > 0.9] = 1
+    labels_pred[labels_pred < 0.9] = 0
     labels_pred = labels_pred.astype(int)
 
     return (bounds_pred, labels_pred)

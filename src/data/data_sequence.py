@@ -4,9 +4,10 @@ import os
 import math
 import pathlib
 import random
+import time
 
 class Loader(Sequence):
-    def __init__(self, data_dir, las_strides=1, train=True):
+    def __init__(self, data_dir, train=True, las_strides=1):
         self.strides = las_strides * 5
         self.batch_size = 33 ** 2
         self.data_dir = pathlib.Path(data_dir)
@@ -22,6 +23,7 @@ class Loader(Sequence):
         return self.num_files
     
     def __getitem__(self, index):
+        start = time.time()
         chm_batch = np.zeros((self.batch_size, 40, 40, 1))
         rgb_batch = np.zeros((self.batch_size, 40, 40, 3))
         hsi_batch = np.zeros((self.batch_size, 40, 40, 3))
@@ -46,6 +48,7 @@ class Loader(Sequence):
         img_y = 0
         las_x = 0
         las_y = 0
+        preds = 0
         for i in range(33):
             img_x = 0
             las_x = 0
@@ -72,6 +75,7 @@ class Loader(Sequence):
 
                     centroid = [(bound[0]+bound[2])/2, (bound[1]+bound[3])/2]
                     if (centroid[0] > window_left) and (centroid[0] < window_right) and (centroid[1] > window_bot) and (centroid[1] < window_top):
+                        preds += 1
                         labels_batch[min_batch_ind, ind] = 1
                         bounds_batch[min_batch_ind, ind, 0] = bound[0] - window_centroid[0]
                         bounds_batch[min_batch_ind, ind, 1] = bound[1] - window_centroid[1]
@@ -82,6 +86,7 @@ class Loader(Sequence):
             img_y += 5
             las_y += 1
 
+        end = time.time()
         if self.train:
             return ([rgb_batch, chm_batch, hsi_batch, las_batch], [bounds_batch, labels_batch])
         else:
