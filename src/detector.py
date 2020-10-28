@@ -71,7 +71,7 @@ class Detector:
         else:
             data_direc = pathlib.Path(data_direc)
 
-        data_loader = Loader(17, data_direc)
+        data_loader = Loader(data_direc)
 
         # Load weights if they exist
         if weights_path != None:
@@ -85,7 +85,7 @@ class Detector:
 
     def predict(self, test_dir, weights_path):
         test_dir = pathlib.Path(test_dir).absolute()
-        data_loader = Loader(1, test_dir, False)
+        data_loader = Loader(test_dir, False)
         self.leaf_net.load_weights(pathlib.Path(weights_path).absolute())
 
         polygons = []

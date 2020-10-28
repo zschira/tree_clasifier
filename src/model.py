@@ -21,18 +21,18 @@ class LeafNet():
 
         # Image network
         image_net = layers.Concatenate(axis=3)([hsi_input, chm_input, rgb_input])
-        image_net = layers.Conv2D(4, 4, activation="relu")(image_net)
-        image_net = layers.Conv2D(8, 4, activation="relu")(image_net)
-        image_net = layers.Conv2D(8, 4, activation="relu")(image_net)
+        image_net = layers.Conv2D(4, 4, activation="relu", padding="same")(image_net)
+        image_net = layers.Conv2D(8, 4, activation="relu", padding="same")(image_net)
+        image_net = layers.Conv2D(8, 4, activation="relu", padding="same")(image_net)
         image_net = layers.MaxPool2D(2)(image_net)
-        image_net = layers.Conv2D(16, 4, activation="relu")(image_net)
-        image_net = layers.Conv2D(16, 4, activation="relu")(image_net)
+        image_net = layers.Conv2D(16, 4, activation="relu", padding="same")(image_net)
+        image_net = layers.Conv2D(16, 4, activation="relu", padding="same")(image_net)
         image_net = layers.MaxPool2D(2)(image_net)
-        image_net = layers.Conv2D(32, 4, activation="relu")(image_net)
-        image_net = layers.Conv2D(32, 4, activation="relu")(image_net)
+        image_net = layers.Conv2D(32, 4, activation="relu", padding="same")(image_net)
+        image_net = layers.Conv2D(32, 4, activation="relu", padding="same")(image_net)
         image_net = layers.MaxPool2D(2)(image_net)
-        image_net = layers.Conv2D(64, 4, activation="relu")(image_net)
-        image_net = layers.Conv2D(64, 4, activation="relu")(image_net)
+        image_net = layers.Conv2D(64, 4, activation="relu", padding="same")(image_net)
+        image_net = layers.Conv2D(64, 4, activation="relu", padding="same")(image_net)
         image_net = layers.Flatten()(image_net)
 
         # Las 3D network
@@ -49,7 +49,7 @@ class LeafNet():
 
         # Combine networks with fully connected layers
         fully_con = layers.concatenate([image_net, las_net])
-        fully_con = layers.Dropout(0.0)(fully_con)
+        fully_con = layers.Dropout(0.1)(fully_con)
         fully_con = layers.Dense(256)(fully_con)
         output_bounding = layers.Dense(36)(fully_con)
         output_bounding = layers.Reshape((9, 4), name="bounds")(output_bounding)
