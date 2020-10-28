@@ -1,7 +1,7 @@
 from src.preprocessor import PcaHandler
 from src.data.data_formats import Image, PointCloud, Shapefile
 from src.data.data_sequence import Loader
-from src.utils import compute_iou, bb_2_polygons
+from src.utils import compute_iou, bb_2_polygons, convert_predictions, score_predictions
 from src.model import LeafNet
 import pandas as pd
 import geopandas as gpd
@@ -103,41 +103,6 @@ class Detector:
 
         polys = gpd.GeoDataFrame({'geometry': polygons}, crs='EPSG:32617')
         polys.to_file('delin_subm.shp')
-
-    def convert_predictions(self, predictions):
-        bounds_pred = predictions[0][0, :, :]
-        labels_pred = predictions[1][0, :]
-
-        labels_pred[labels_pred > 0.75] = 1
-        labels_pred[labels_pred < 0.75] = 0
-        labels_pred = labels_pred.astype(int)
-
-        return (bounds_pred, labels_pred)
-
-    def score_predictions(self, bounds_pred, labels_pred, test_dir, fname):
-        if not os.path.isfile(test_dir / "labels" / (fname + ".npy")):
-            return
-
-        bounds_truth = np.load(test_dir / "bounds" / (fname + ".npy"))
-        labels_truth = np.load(test_dir / "labels" / (fname + ".npy"))
-
-        iou_avg = 0
-        num_bb = 0
-
-        print(labels_pred)
-
-        for (b_t, l_t, b_p, l_p) in zip(bounds_truth, labels_truth, bounds_pred, labels_pred):
-            if l_t != l_p:
-                print("Mismatched label for file {}".format(fname))
-                continue
-
-            if l_p == 0:
-                continue
-
-            iou_avg += compute_iou(b_t, b_p)
-            num_bb += 1
-
-        print("Average iou for file, {}: {}".format(fname, iou_avg / num_bb))
 
     def create_paths(self, save_direc, labels):
         if not os.path.exists(save_direc):

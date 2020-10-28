@@ -34,3 +34,54 @@ def bb_2_polygons(left, bottom, boxes):
         polys.append(Polygon([(box[0], box[3]), (box[0], box[1]), (box[2], box[1]), (box[2], box[3])]))
 
     return polys
+
+def convert_predictions(predictions):
+    bounds_pred = predictions[0]
+    labels_pred = predictions[1].flatten()
+
+    for (i, bounds) in enumerate(bounds_pred):
+        row, col = divmod(i)
+        window_left = (col * 5) / 200
+        window_top = 1 - ((row * 5) / 200)
+        window_centroid = [window_left + 0.1, window_top - 0.1]
+        bounds[:, 0] += window_centroid[0]
+        bounds[:, 1] += window_centroid[1]
+        bounds[:, 2] += window_centroid[0]
+        bounds[:, 3] += window_centroid[1]
+
+    bounds_pred = np.reshape(bounds_pred, (bounds_pred.shape[0] * 9, 4))
+
+    sort_inds = np.argsort(labels_pred)
+    labels_pred = labels_pred[sort_inds]
+    bounds_pred = bounds_pred[sort_inds, :]
+
+    labels_pred[labels_pred > 0.75] = 1
+    labels_pred[labels_pred < 0.75] = 0
+    labels_pred = labels_pred.astype(int)
+
+    return (bounds_pred, labels_pred)
+
+def score_predictions(bounds_pred, labels_pred, test_dir, fname):
+    if not os.path.isfile(test_dir / "labels" / (fname + ".npy")):
+        return
+
+    bounds_truth = np.load(test_dir / "bounds" / (fname + ".npy"))
+    labels_truth = np.load(test_dir / "labels" / (fname + ".npy"))
+
+    iou_avg = 0
+    num_bb = 0
+
+    print(labels_pred)
+
+    for (b_t, l_t, b_p, l_p) in zip(bounds_truth, labels_truth, bounds_pred, labels_pred):
+        if l_t != l_p:
+            print("Mismatched label for file {}".format(fname))
+            continue
+
+        if l_p == 0:
+            continue
+
+        iou_avg += compute_iou(b_t, b_p)
+        num_bb += 1
+
+    print("Average iou for file, {}: {}".format(fname, iou_avg / num_bb))
