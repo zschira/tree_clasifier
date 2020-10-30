@@ -7,9 +7,8 @@ import random
 import time
 
 class Loader(Sequence):
-    def __init__(self, data_dir, train=True, las_strides=1):
-        self.strides = las_strides * 5
-        self.batch_size = 33 ** 2
+    def __init__(self, data_dir, train=True, batch_size=1):
+        self.batch_size = batch_size
         self.data_dir = pathlib.Path(data_dir)
         self.fnames = np.array(os.listdir(self.data_dir / "chm"))
         self.num_files = len(self.fnames)
@@ -21,76 +20,77 @@ class Loader(Sequence):
 
     def __len__(self):
         return self.num_files
+
+    def get_batch_fnames(self, index):
+        start = (index * self.batch_size) % self.num_files
+        indices = np.array(range(start, start + self.batch_size))
+        indices[indices >= self.num_files] = indices[indices >= self.num_files] - self.num_files
+        return self.fnames[indices]
     
     def __getitem__(self, index):
-        start = time.time()
-        chm_batch = np.zeros((self.batch_size, 40, 40, 1))
-        rgb_batch = np.zeros((self.batch_size, 40, 40, 3))
-        hsi_batch = np.zeros((self.batch_size, 40, 40, 3))
-        las_batch = np.zeros((self.batch_size, 8, 8, 70, 1))
+        chm = np.zeros((self.batch_size, 200, 200, 1))
+        rgb = np.zeros((self.batch_size, 200, 200, 3))
+        hsi = np.zeros((self.batch_size, 200, 200, 3))
+        las = np.zeros((self.batch_size, 40, 40, 70, 1))
 
-        chm = np.load(self.data_dir / "chm" / self.fnames[index]).repeat(10, axis=0).repeat(10, axis=1)
-        rgb = np.load(self.data_dir / "rgb" / self.fnames[index])
-        hsi = np.load(self.data_dir / "hsi" / self.fnames[index]).repeat(10, axis=0).repeat(10, axis=1)
-        las = np.load(self.data_dir / "las" / self.fnames[index])
+        batch_files = self.get_batch_fnames(index)
+
+        ratio = 24 / 168
 
         if self.train:
-            bounds_batch = np.zeros((self.batch_size, 9, 4))
-            labels_batch = np.zeros((self.batch_size, 9), dtype=int)
+            bounds_batch = np.zeros((self.batch_size, 625, 9, 4))
+            labels_batch = np.zeros((self.batch_size, 625, 9), dtype=int)
 
-            bounds = np.load(self.data_dir / "bounds" / self.fnames[index])
-            labels = np.load(self.data_dir / "labels" / self.fnames[index])
-        else:
-            bounds = []
-            labels = []
+        for batch_ind in range(self.batch_size):
+            chm[batch_ind, :, :, :] = np.load(self.data_dir / "chm" / batch_files[batch_ind]).repeat(10, axis=0).repeat(10, axis=1)
+            rgb[batch_ind, :, :, :] = np.load(self.data_dir / "rgb" / batch_files[batch_ind])
+            hsi[batch_ind, :, :, :] = np.load(self.data_dir / "hsi" / batch_files[batch_ind]).repeat(10, axis=0).repeat(10, axis=1)
+            las[batch_ind, :, :, :, 0] = np.load(self.data_dir / "las" / batch_files[batch_ind])
 
-        img_x = 0
-        img_y = 0
-        las_x = 0
-        las_y = 0
-        preds = 0
-        for i in range(33):
+            if self.train:
+                bounds = np.load(self.data_dir / "bounds" / batch_files[batch_ind])
+                labels = np.load(self.data_dir / "labels" / batch_files[batch_ind])
+            else:
+                bounds = []
+                labels = []
+
             img_x = 0
+            img_y = 0
             las_x = 0
-            for j in range(33):
-                min_batch_ind = i*33 + j
+            las_y = 0
+            for i in range(25):
+                img_x = 0
+                for j in range(25):
+                    min_batch_ind = i*25 + j
 
-                window_top = 1 - (img_y / 200)
-                window_left = img_x / 200
-                window_right = window_left + 0.2
-                window_bot = window_top - 0.2
-                window_centroid = [window_left + 0.1, window_top - 0.1]
+                    window_top = 1 - (img_y / 168)
+                    window_left = img_x / 168
+                    window_right = window_left + ratio
+                    window_bot = window_top - ratio
+                    window_centroid = [window_left + ratio/2, window_top - ratio/2]
 
-                chm_batch[min_batch_ind, :, :, :] = chm[img_y:img_y+40, img_x:img_x+40, :]
-                rgb_batch[min_batch_ind, :, :, :] = rgb[img_y:img_y+40, img_x:img_x+40, :]
-                hsi_batch[min_batch_ind, :, :, :] = hsi[img_y:img_y+40, img_x:img_x+40, :]
-                las_batch[min_batch_ind, :, :, :, 0] = las[las_y:las_y+8, las_x:las_x+8, :]
-                img_x += 5
-                las_x += 1
+                    img_x += 6
 
-                ind = 0
-                for (bound, label) in zip(bounds, labels):
-                    if not label:
-                        continue
+                    ind = 0
+                    for (bound, label) in zip(bounds, labels):
+                        if not label:
+                            continue
 
-                    centroid = [(bound[0]+bound[2])/2, (bound[1]+bound[3])/2]
-                    if (centroid[0] > window_left) and (centroid[0] < window_right) and (centroid[1] > window_bot) and (centroid[1] < window_top):
-                        preds += 1
-                        labels_batch[min_batch_ind, ind] = 1
-                        bounds_batch[min_batch_ind, ind, 0] = bound[0] - window_centroid[0]
-                        bounds_batch[min_batch_ind, ind, 1] = bound[1] - window_centroid[1]
-                        bounds_batch[min_batch_ind, ind, 2] = bound[2] - window_centroid[0]
-                        bounds_batch[min_batch_ind, ind, 3] = bound[3] - window_centroid[1]
-                        ind += 1
+                        centroid = [(bound[0]+bound[2])/2, (bound[1]+bound[3])/2]
+                        if (centroid[0] > window_left) and (centroid[0] < window_right) and (centroid[1] > window_bot) and (centroid[1] < window_top):
+                            labels_batch[batch_ind, min_batch_ind, ind] = 1
+                            bounds_batch[batch_ind, min_batch_ind, ind, 0] = bound[0] - window_centroid[0]
+                            bounds_batch[batch_ind, min_batch_ind, ind, 1] = bound[1] - window_centroid[1]
+                            bounds_batch[batch_ind, min_batch_ind, ind, 2] = bound[2] - window_centroid[0]
+                            bounds_batch[batch_ind, min_batch_ind, ind, 3] = bound[3] - window_centroid[1]
+                            ind += 1
 
-            img_y += 5
-            las_y += 1
+                img_y += 6
 
-        end = time.time()
         if self.train:
-            return ([rgb_batch, chm_batch, hsi_batch, las_batch], [bounds_batch, labels_batch])
+            return ([rgb, chm, hsi, las], [np.reshape(bounds_batch, (625 * 9, 4)), np.reshape(labels_batch, (625 * 9))])
         else:
-            return [rgb_batch, chm_batch, hsi_batch, las_batch]
+            return [rgb, chm, hsi, las]
 
     def rotate_arrays(self, ind):
         rotations = random.randint(0,3)

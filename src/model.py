@@ -39,10 +39,15 @@ class LeafNet():
         return (image_net, las_net)
 
     def _get_window(self, features, row, col):
-        y = col * 5
-        x = row * 5
+        left = col * 6
+        right = 168 - ((col * 6) + 24)
+        top = row * 6
+        bot = 168 - ((row * 6) + 24)
+        feature_map = layers.Cropping2D(((top, bot), (left, right)))(features)
 
-    def build_rpn(self):
+        return layers.Flatten()(feature_map)
+
+    def build_model(self):
         chm_input = Input(shape=(200, 200, 1), name="chm")
         rgb_input = Input(shape=(200, 200, 3), name="rgb")
         hsi_input = Input(shape=(200, 200, 3), name="hsi")
@@ -52,17 +57,26 @@ class LeafNet():
 
         las_up = layers.UpSampling2D(size=7)(las_net)
         features = layers.Concatenate(axis=3)([las_up, image_net])
-        las_net = layers.Flatten()(las_net)
-        image_net = layers.Flatten()(image_net)
-        #image_net = layers.Cropping2D(((x, y), (x, y)))(image_net)
 
-        # Combine networks with fully connected layers
-        fully_con = layers.concatenate([image_net, las_net])
-        fully_con = layers.Dropout(0.1)(fully_con)
-        fully_con = layers.Dense(256)(fully_con)
-        output_bounding = layers.Dense(36)(fully_con)
-        output_bounding = layers.Reshape((9, 4), name="bounds")(output_bounding)
-        output_class = layers.Dense(9, activation="sigmoid", name="labels")(fully_con)
+        dense = layers.Dense(256)
+        bound_layer = layers.Dense(36)
+        reshape_bounds = layers.Reshape((9, 4))
+        class_layer = layers.Dense(9, activation="sigmoid")
+
+        bounds_list = []
+        labels_list = []
+        for row in range(25):
+            for col in range(25):
+                window = self._get_window(features, row, col)
+                feature_dense = dense(window)
+                bounds = bound_layer(feature_dense)
+                bounds = reshape_bounds(bounds)
+                labels = class_layer(feature_dense)
+                bounds_list.append(bounds)
+                labels_list.append(labels)
+
+        output_bounding = layers.Concatenate(axis=1, name="bounds")(bounds_list)
+        output_class = layers.Concatenate(axis=1, name="labels")(labels_list)
 
         self.model = Model(
             inputs=[rgb_input, chm_input, hsi_input, las_input],
