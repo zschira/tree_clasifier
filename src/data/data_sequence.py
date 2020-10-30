@@ -88,7 +88,7 @@ class Loader(Sequence):
                 img_y += 6
 
         if self.train:
-            return ([rgb, chm, hsi, las], [np.reshape(bounds_batch, (625 * 9, 4)), np.reshape(labels_batch, (625 * 9))])
+            return ([rgb, chm, hsi, las], [np.reshape(bounds_batch, (self.batch_size, 625 * 9, 4)), np.reshape(labels_batch, (self.batch_size, 625 * 9))])
         else:
             return [rgb, chm, hsi, las]
 
