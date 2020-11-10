@@ -1,13 +1,14 @@
 from keras import layers
 from keras import Model, Input
 import keras
+import keras.backend as K
 
 class LeafNet():
     def __init__(self):
-        self.model = None
+        self.rpn = None
 
-    def load_weights(self, path):
-        if self.model == None:
+    def load_rpn_weights(self, path):
+        if self.rpn == None:
             self.build_model()
             self.compile()
 
@@ -80,12 +81,12 @@ class LeafNet():
         output_bounding = layers.Concatenate(axis=1, name="bounds")(bounds_list)
         output_class = layers.Concatenate(axis=1, name="labels")(labels_list)
 
-        self.model = Model(
+        self.rpn = Model(
             inputs=[rgb_input, chm_input, hsi_input, las_input],
             outputs=[output_bounding, output_class],
         )
 
-        self.model.summary()
+        self.rpn.summary()
 
     def build_detector(self):
         chm_input = Input(shape=(200, 200, 1), name="chm")
@@ -93,21 +94,32 @@ class LeafNet():
         hsi_input = Input(shape=(200, 200, 3), name="hsi")
         las_input = Input(shape=(40, 40, 70, 1), name="las")
         
-        bounds_input = Input(shape=(625 * 9, 4), name="in_bounds")
-        labels_input = Input(shape=(625 * 9), name="in_labels")
+        roi_input = Input(shape=(625 * 9, 4), name="roi")
 
         image_net, las_net = self._conv_layers(chm_input, rgb_input, hsi_input, las_input)
+        las_up = layers.UpSampling2D(size=7)(las_net)
         features = layers.Concatenate(axis=3)([las_up, image_net])
-        roi_pool + RoiPoolingConv(7, 625 * 9)([features, bounds_input])
+        roi_pool = RoiPoolingConv(5, 625 * 9)([features, roi_input])
+        roi_pool = layers.Flatten()(roi_pool)
 
-    def plot(self):
-        keras.utils.plot_model(self.model, "leafnet.png", show_shapes=True)
+        fc = layers.Dense(256)(roi_pool)
+
+        labels = layers.Dense(30)(fc, activation="sigmoid")
+        bounds = layers.Dense(120)(fc)
+        bounds = layers.Reshape((30, 4))(bounds)
+
+        self.detector = Model(
+            inputs=[rgb_input, chm_input, hsi_input, las_input],
+            outputs=[bounds, labels],
+        )
+
+        self.detector.summary()
 
     def compile(self):
-        if self.model == None:
-            self.build_model()
+        if self.rpn == None:
+            self.build_rpn()
 
-        self.model.compile(
+        self.rpn.compile(
             loss={"bounds": "mae", "labels": "binary_crossentropy"},
             optimizer=keras.optimizers.RMSprop(),
             metrics={"bounds": "mse", "labels": "binary_accuracy"},
@@ -125,7 +137,7 @@ class LeafNet():
         return self.model.predict(data_sequence)
 
 
-class RoiPoolingConv(Layer):
+class RoiPoolingConv(layers.Layer):
     '''ROI pooling layer for 2D inputs.
     See Spatial Pyramid Pooling in Deep Convolutional Networks for Visual Recognition,
     K. He, X. Zhang, S. Ren, J. Sun
@@ -147,7 +159,7 @@ class RoiPoolingConv(Layer):
     '''
     def __init__(self, pool_size, num_rois, **kwargs):
 
-        self.dim_ordering = K.common.image_dim_ordering()
+        self.dim_ordering = 'tf'
         assert self.dim_ordering in {'tf', 'th'}, 'dim_ordering must be in {tf, th}'
 
         self.pool_size = pool_size
@@ -242,3 +254,4 @@ class RoiPoolingConv(Layer):
                   'num_rois': self.num_rois}
         base_config = super(RoiPoolingConv, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
+
